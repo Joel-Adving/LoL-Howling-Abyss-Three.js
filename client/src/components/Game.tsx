@@ -46,7 +46,7 @@ export default function Game() {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
   const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000.0)
-  camera.zoom = 1.715
+  camera.zoom = 1.85
   camera.updateProjectionMatrix()
   entities.push(camera)
 
@@ -222,7 +222,7 @@ export default function Game() {
 
     function handleScroll(e: WheelEvent) {
       if (e.deltaY > 0) {
-        if (camera.zoom <= 1.715) return
+        if (camera.zoom <= 1.85) return
         camera.zoom -= 0.2
       } else {
         if (camera.zoom > 4) return
