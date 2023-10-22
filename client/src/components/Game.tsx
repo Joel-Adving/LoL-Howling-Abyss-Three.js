@@ -20,7 +20,7 @@ export default function Game() {
   const [warning, setWarning] = createSignal<HTMLElement>()
 
   const mouseElement = createMouseElement()
-  const cameraSpeed = 0.1
+  const cameraSpeed = 0.12
   let mouseIsAtEdge = false
   let mouseX = 0
   let mouseY = 0
@@ -40,7 +40,7 @@ export default function Game() {
 
   const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000.0)
   entities.push(camera)
-  camera.zoom = 1.25
+  camera.zoom = 1.715
   camera.updateProjectionMatrix()
 
   //   const gridHelper = new THREE.GridHelper(20, 20)
@@ -115,10 +115,10 @@ export default function Game() {
   }
 
   function initialSceneState() {
-    const angleInDegrees = 65
+    const angleInDegrees = 56.75
     const angleInRadians = angleInDegrees * (Math.PI / 180)
     camera.rotation.x = -angleInRadians
-    camera.position.set(0, 7, 5)
+    camera.position.set(0, 8, 5)
     lastFrameTime = null
   }
 
