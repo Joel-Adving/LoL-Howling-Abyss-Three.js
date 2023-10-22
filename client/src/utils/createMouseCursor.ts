@@ -1,4 +1,4 @@
-export function createMouseElement() {
+export function createCursor() {
   const mouseElement = document.createElement('img')
   mouseElement.src = '/assets/cursor.webp'
   mouseElement.id = 'mouse'

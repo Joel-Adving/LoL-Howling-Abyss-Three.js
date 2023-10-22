@@ -1,32 +1,32 @@
 import { createSignal, onMount } from 'solid-js'
 import * as THREE from 'three'
-import { FontLoader } from 'three/addons/loaders/FontLoader.js'
 import WebGL from 'three/addons/capabilities/WebGL.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { createCursor } from '../utils/createMouseCursor'
+import { convertMaterialToPhong } from '../utils/meshHelpers'
 // @ts-ignore
 import Stats from 'three/examples/jsm/libs/stats.module'
-import { createMouseElement } from '../utils/createMouseElement'
 
 export default function Game() {
   const scene = new THREE.Scene()
-  const renderer = new THREE.WebGLRenderer({ antialias: true })
-  const fontLoder = new FontLoader()
   const gltfLoader = new GLTFLoader()
   const entities: THREE.Object3D[] = []
   const assets = new Map<string, any>()
+  const mouseCursor = createCursor()
 
   const [isPaused, setIsPaused] = createSignal(true)
   const [hasLoaded, setHasLoaded] = createSignal(false)
   const [warning, setWarning] = createSignal<HTMLElement>()
 
-  const mouseElement = createMouseElement()
-  const cameraSpeed = 0.12
-  let mouseIsAtEdge = false
-  let mouseX = 0
-  let mouseY = 0
-
   let container: HTMLElement | undefined = undefined
   let startBtn: HTMLElement | undefined = undefined
+
+  let cameraSpeed = 0.12
+  let cameraLocked = false
+
+  let mouseX = 0
+  let mouseY = 0
+  let mouseIsAtEdge = false
 
   let animFrameId = 0
   let lastFrameTime: null | number = null
@@ -38,20 +38,55 @@ export default function Game() {
     right: false
   }
 
+  const renderer = new THREE.WebGLRenderer({ antialias: true })
+  renderer.outputColorSpace = THREE.SRGBColorSpace
+  renderer.toneMapping = 1
+  renderer.toneMappingExposure = 2.5
+  renderer.shadowMap.enabled = true
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap
+
   const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000.0)
-  entities.push(camera)
   camera.zoom = 1.715
   camera.updateProjectionMatrix()
+  entities.push(camera)
 
-  //   const gridHelper = new THREE.GridHelper(20, 20)
-  //   const axesHelper = new THREE.AxesHelper(5)
-  //   entities.push(gridHelper, axesHelper)
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.25)
+  entities.push(ambientLight)
+
+  const hemisphereLight = new THREE.HemisphereLight(0x0000ff, 0xffffff, 2)
+  entities.push(hemisphereLight)
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 4.25)
+  directionalLight.shadow.mapSize.set(1024, 1024)
+  directionalLight.castShadow = true
+  directionalLight.position.set(-3, 7, -3)
+  directionalLight.shadow.normalBias = 0.05
+  directionalLight.shadow.camera.near = 0.5
+  directionalLight.shadow.camera.far = 1000
+  directionalLight.shadow.camera.left = -20
+  directionalLight.shadow.camera.right = 20
+  directionalLight.shadow.camera.top = 20
+  directionalLight.shadow.camera.bottom = -20
+  directionalLight.shadow.camera.updateProjectionMatrix()
+  entities.push(directionalLight)
+
+  const box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 'red' }))
+  box.position.set(0, 0.5, 0)
+  box.castShadow = true
+  box.receiveShadow = true
+  entities.push(box)
+
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0 })
+  )
+
+  plane.rotation.x = -Math.PI / 2
+  plane.position.y = 0.2
+  entities.push(plane)
+
   const stats = new Stats()
-
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.1)
-  const dirLight = new THREE.DirectionalLight(0xffffff, 2)
-  dirLight.position.set(0, 0, 1)
-  entities.push(dirLight, ambientLight)
+  entities.push(stats)
 
   function resetCameraDirection() {
     for (const key in cameraDirection) {
@@ -75,27 +110,35 @@ export default function Game() {
   }
 
   async function loadAssets() {
-    const [aramMap, font] = await Promise.allSettled([
-      gltfLoader.loadAsync('/assets/aram-map/aram.gltf'),
-      fontLoder.loadAsync(
-        'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/fonts/helvetiker_regular.typeface.json'
-      )
-    ])
+    const [aramMap] = await Promise.allSettled([gltfLoader.loadAsync('/assets/aram-map/aram.gltf')])
     assets.set('aram-map', aramMap)
-    assets.set('font', font)
     setHasLoaded(true)
   }
 
-  async function addAssetsToScene() {
+  async function setUpAssets() {
     await loadAssets()
+
     const aramMap = assets.get('aram-map')
     aramMap.value.scene.scale.set(0.005, 0.005, 0.005)
-    // aramMap.value.scene.rotation.y = -Math.PI / 2
-    // aramMap.value.scene.position.set(50, 0.1, -50)
-    // mirror the map
     aramMap.value.scene.scale.z *= -1
-    aramMap.value.scene.position.set(-6, 1, 9)
+    aramMap.value.scene.position.set(-6.5, 1, 6.5)
+    aramMap.value.scene.traverse((child: any) => {
+      if (child.isMesh) {
+        if (child.material instanceof THREE.MeshBasicMaterial) {
+          child.material = convertMaterialToPhong(child.material)
+          child.castShadow = true
+          child.receiveShadow = true
+        }
+      }
+    })
+
     entities.push(aramMap.value.scene)
+  }
+
+  function updateLightPos() {
+    directionalLight.position.set(camera.position.x - 3, camera.position.y + 7, camera.position.z - 3)
+    directionalLight.target.position.set(camera.position.x, camera.position.y, camera.position.z)
+    directionalLight.target.updateMatrixWorld()
   }
 
   function frame(time: number) {
@@ -110,6 +153,11 @@ export default function Game() {
     if (mouseIsAtEdge) {
       setCameraPosition()
     }
+    if (cameraLocked) {
+      camera.position.x = box.position.x
+      camera.position.z = box.position.z + 5
+    }
+    updateLightPos()
     renderer.render(scene, camera)
     stats.update()
   }
@@ -132,7 +180,7 @@ export default function Game() {
     }
   }
 
-  function pause() {
+  function stop() {
     cancelAnimationFrame(animFrameId)
     scene.clear()
     renderer.render(scene, camera)
@@ -147,7 +195,16 @@ export default function Game() {
   function initEventListeners() {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        pause()
+        stop()
+      }
+      if (e.key === ' ') {
+        cameraLocked = true
+      }
+    }
+
+    function handleKeyUp(e: KeyboardEvent) {
+      if (e.key === ' ') {
+        cameraLocked = false
       }
     }
 
@@ -157,13 +214,30 @@ export default function Game() {
       renderer.setSize(window.innerWidth, window.innerHeight)
     }
 
+    function handlePointerLockChange(e: Event) {
+      if (document.pointerLockElement !== container) {
+        mouseCursor.style.transform = 'translate(0, 0)'
+      }
+    }
+
+    function handleScroll(e: WheelEvent) {
+      if (e.deltaY > 0) {
+        if (camera.zoom <= 1.715) return
+        camera.zoom -= 0.2
+      } else {
+        if (camera.zoom > 4) return
+        camera.zoom += 0.2
+      }
+      camera.updateProjectionMatrix()
+    }
+
     function updateCustomCursor(e: MouseEvent) {
       if (document.pointerLockElement === container) {
         mouseX += e.movementX
         mouseY += e.movementY
         mouseX = Math.min(Math.max(mouseX, 0), container.clientWidth)
         mouseY = Math.min(Math.max(mouseY, 0), container.clientHeight)
-        mouseElement.style.transform = `translate(${mouseX}px, ${mouseY}px)`
+        mouseCursor.style.transform = `translate(${mouseX}px, ${mouseY}px)`
 
         resetCameraDirection()
 
@@ -187,35 +261,66 @@ export default function Game() {
       }
     }
 
-    function handlePointerLockChange(e: Event) {
-      if (document.pointerLockElement !== container) {
-        mouseElement.style.transform = 'translate(0, 0)'
-      }
-    }
-
     function handleClick(e: MouseEvent) {
       if (e.target === startBtn || e.target === renderer.domElement) {
-        container!.requestPointerLock()
+        if (document.pointerLockElement !== container) {
+          container!.requestPointerLock()
+        }
         mouseX = e.clientX
         mouseY = e.clientY
-        mouseElement.style.transform = `translate(${mouseX}px, ${mouseY}px)`
+        mouseCursor.style.transform = `translate(${mouseX}px, ${mouseY}px)`
+      }
+
+      if (e.button === 2) {
+        const raycaster = new THREE.Raycaster()
+        const mouse = new THREE.Vector2()
+
+        // Use your custom cursor position values mouseX and mouseY
+        mouse.x = (mouseX / container!.clientWidth) * 2 - 1
+        mouse.y = -(mouseY / container!.clientHeight) * 2 + 1
+
+        // Set the raycaster from the camera
+        raycaster.setFromCamera(mouse, camera)
+
+        // Get intersections
+        const intersects = raycaster.intersectObject(plane)
+        if (intersects.length > 0) {
+          const intersect = intersects[0]
+          const objectPosition = new THREE.Vector3() // The position where the object will be placed
+
+          // Set object position based on the intersection point on the ground plane
+          objectPosition.copy(intersect.point)
+
+          // Adjust object position to account for the camera's angle and position
+          const angleInDegrees = 56.75
+          const angleInRadians = angleInDegrees * (Math.PI / 180)
+
+          const cameraHeight = 8 // The height of the camera above the ground
+
+          const offset = new THREE.Vector3(0, cameraHeight / Math.tan(angleInRadians), 0)
+          objectPosition.add(offset)
+
+          box.position.copy(objectPosition)
+          box.position.y = 0.5
+        }
       }
     }
 
-    addEventListener('wheel', (e) => {})
+    addEventListener('wheel', handleScroll)
     addEventListener('click', handleClick)
     addEventListener('resize', handleResize)
     addEventListener('keydown', handleKeyDown)
+    addEventListener('keyup', handleKeyUp)
     container!.addEventListener('mousemove', updateCustomCursor)
     container!.addEventListener('pointerlockchange', handlePointerLockChange)
   }
 
   onMount(() => {
-    addAssetsToScene()
+    setUpAssets()
     initEventListeners()
     document.body.appendChild(stats.dom)
     renderer.setSize(window.innerWidth, window.innerHeight)
-    container!.appendChild(mouseElement)
+    container!.appendChild(mouseCursor)
     container!.appendChild(renderer.domElement)
   })
 
@@ -224,14 +329,17 @@ export default function Game() {
       {warning()}
       {isPaused() && (
         <div class="absolute inset-0 flex justify-center items-center z-10 bg-black">
-          <button
-            ref={startBtn}
-            disabled={!hasLoaded()}
-            class="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg"
-            onClick={handlePressStart}
-          >
-            {hasLoaded() ? 'Start' : 'Loading...'}
-          </button>
+          <div class="flex flex-col gap-6">
+            <h1 class="text-white text-xl">Press F11 for best experiance</h1>
+            <button
+              ref={startBtn}
+              disabled={!hasLoaded()}
+              class="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg max-w-[10rem] w-full mx-auto"
+              onClick={handlePressStart}
+            >
+              {hasLoaded() ? 'Start' : 'Loading...'}
+            </button>
+          </div>
         </div>
       )}
       <div ref={container} class="absolute inset-0"></div>
