@@ -1,6 +1,6 @@
-import { createSignal, onMount } from 'solid-js'
 import * as THREE from 'three'
 import WebGL from 'three/addons/capabilities/WebGL.js'
+import { createSignal, onMount } from 'solid-js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { createCursor } from '../utils/createMouseCursor'
 import { convertMaterialToPhong } from '../utils/meshHelpers'
@@ -21,8 +21,9 @@ export default function Game() {
   let container: HTMLElement | undefined = undefined
   let startBtn: HTMLElement | undefined = undefined
 
-  let cameraSpeed = 0.12
+  let cameraSpeed = 0.125
   let cameraLocked = false
+  let cameraMaxZoom = 1.85
 
   let mouseX = 0
   let mouseY = 0
@@ -38,25 +39,29 @@ export default function Game() {
     right: false
   }
 
+  const worldBounds = {
+    topLeftCorner: new THREE.Vector3(-2.7, 0, -51),
+    topRightCorner: new THREE.Vector3(55.5, 0, 0),
+    bottomLeftCorner: new THREE.Vector3(0, 0, 7.5),
+    bottomRightCorner: new THREE.Vector3(0, 0, 30)
+  }
+
   const renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = 1
   renderer.toneMappingExposure = 2.5
-  renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  renderer.shadowMap.enabled = true
 
   const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000.0)
-  camera.zoom = 1.85
+  camera.zoom = cameraMaxZoom
   camera.updateProjectionMatrix()
   entities.push(camera)
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.25)
-  entities.push(ambientLight)
-
-  const hemisphereLight = new THREE.HemisphereLight(0x0000ff, 0xffffff, 2)
+  const hemisphereLight = new THREE.HemisphereLight(0x0000ff, 0x008080, 1.5)
   entities.push(hemisphereLight)
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 4.25)
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5)
   directionalLight.shadow.mapSize.set(1024, 1024)
   directionalLight.castShadow = true
   directionalLight.position.set(-3, 7, -3)
@@ -80,7 +85,6 @@ export default function Game() {
     new THREE.PlaneGeometry(200, 200),
     new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0 })
   )
-
   plane.rotation.x = -Math.PI / 2
   plane.position.y = 0.2
   entities.push(plane)
@@ -96,16 +100,27 @@ export default function Game() {
 
   function setCameraPosition() {
     if (cameraDirection.up) {
-      camera.position.z -= cameraSpeed
+      if (camera.position.z - cameraSpeed >= worldBounds.topLeftCorner.z) {
+        camera.position.z -= cameraSpeed
+      }
     }
     if (cameraDirection.down) {
-      camera.position.z += cameraSpeed
+      if (
+        camera.position.z + cameraSpeed <=
+        Math.min(worldBounds.bottomLeftCorner.z, worldBounds.bottomRightCorner.z)
+      ) {
+        camera.position.z += cameraSpeed
+      }
     }
     if (cameraDirection.left) {
-      camera.position.x -= cameraSpeed
+      if (camera.position.x - cameraSpeed >= worldBounds.topLeftCorner.x) {
+        camera.position.x -= cameraSpeed
+      }
     }
     if (cameraDirection.right) {
-      camera.position.x += cameraSpeed
+      if (camera.position.x + cameraSpeed <= worldBounds.topRightCorner.x) {
+        camera.position.x += cameraSpeed
+      }
     }
   }
 
@@ -128,6 +143,16 @@ export default function Game() {
           child.material = convertMaterialToPhong(child.material)
           child.castShadow = true
           child.receiveShadow = true
+        }
+        if (child.material.map) {
+          child.material.map.minFilter = THREE.LinearMipMapLinearFilter
+          child.material.map.magFilter = THREE.LinearFilter
+          child.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy()
+        }
+        if (child.material.normalMap) {
+          child.material.normalMap.minFilter = THREE.LinearMipMapLinearFilter
+          child.material.normalMap.magFilter = THREE.LinearFilter
+          child.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy()
         }
       }
     })
@@ -222,7 +247,7 @@ export default function Game() {
 
     function handleScroll(e: WheelEvent) {
       if (e.deltaY > 0) {
-        if (camera.zoom <= 1.85) return
+        if (camera.zoom <= cameraMaxZoom) return
         camera.zoom -= 0.2
       } else {
         if (camera.zoom > 4) return
@@ -231,7 +256,7 @@ export default function Game() {
       camera.updateProjectionMatrix()
     }
 
-    function updateCustomCursor(e: MouseEvent) {
+    function handleMouseMove(e: MouseEvent) {
       if (document.pointerLockElement === container) {
         mouseX += e.movementX
         mouseY += e.movementY
@@ -247,17 +272,20 @@ export default function Game() {
           mouseY <= edgeThreshold ||
           mouseX >= container.clientWidth - edgeThreshold ||
           mouseY >= container.clientHeight - edgeThreshold
-      }
 
-      if (mouseX <= 0) {
-        cameraDirection.left = true
-      } else if (mouseX >= container!.clientWidth) {
-        cameraDirection.right = true
-      }
-      if (mouseY <= 0) {
-        cameraDirection.up = true
-      } else if (mouseY >= container!.clientHeight) {
-        cameraDirection.down = true
+        if (!mouseIsAtEdge) return
+
+        if (mouseX <= 0) {
+          cameraDirection.left = true
+        } else if (mouseX >= container!.clientWidth) {
+          cameraDirection.right = true
+        }
+
+        if (mouseY <= 0) {
+          cameraDirection.up = true
+        } else if (mouseY >= container!.clientHeight) {
+          cameraDirection.down = true
+        }
       }
     }
 
@@ -311,7 +339,7 @@ export default function Game() {
     addEventListener('resize', handleResize)
     addEventListener('keydown', handleKeyDown)
     addEventListener('keyup', handleKeyUp)
-    container!.addEventListener('mousemove', updateCustomCursor)
+    container!.addEventListener('mousemove', handleMouseMove)
     container!.addEventListener('pointerlockchange', handlePointerLockChange)
   }
 
