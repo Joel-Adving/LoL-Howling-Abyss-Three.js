@@ -6,10 +6,12 @@ import { createCursor } from '../utils/createMouseCursor'
 import { convertMaterialToPhong } from '../utils/meshHelpers'
 // @ts-ignore
 import Stats from 'three/examples/jsm/libs/stats.module'
+import { cloneGltf } from '../utils/cloneGltf'
 
 export default function Game() {
   const scene = new THREE.Scene()
   const gltfLoader = new GLTFLoader()
+  const cubeTextureLoader = new THREE.CubeTextureLoader()
   const entities: THREE.Object3D[] = []
   const assets = new Map<string, any>()
   const mouseCursor = createCursor()
@@ -21,9 +23,10 @@ export default function Game() {
   let container: HTMLElement | undefined = undefined
   let startBtn: HTMLElement | undefined = undefined
 
+  let envMapIntensity = 5
   let cameraSpeed = 0.125
   let cameraLocked = false
-  let cameraMaxZoom = 1.85
+  let cameraMaxZoom = 1.85 // 1.715
 
   let mouseX = 0
   let mouseY = 0
@@ -39,7 +42,7 @@ export default function Game() {
     right: false
   }
 
-  const worldBounds = {
+  const cameraBounds = {
     topLeftCorner: new THREE.Vector3(-2.7, 0, -51),
     topRightCorner: new THREE.Vector3(55.5, 0, 0),
     bottomLeftCorner: new THREE.Vector3(0, 0, 7.5),
@@ -47,21 +50,21 @@ export default function Game() {
   }
 
   const renderer = new THREE.WebGLRenderer({ antialias: true })
+  renderer.shadowMap.enabled = true
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = 1
-  renderer.toneMappingExposure = 2.5
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap
-  renderer.shadowMap.enabled = true
+  renderer.toneMappingExposure = 3
 
   const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000.0)
   camera.zoom = cameraMaxZoom
   camera.updateProjectionMatrix()
   entities.push(camera)
 
-  const hemisphereLight = new THREE.HemisphereLight(0x0000ff, 0x008080, 1.5)
+  const hemisphereLight = new THREE.HemisphereLight('#0a9df2', 'black', 2)
   entities.push(hemisphereLight)
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5)
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 2)
   directionalLight.shadow.mapSize.set(1024, 1024)
   directionalLight.castShadow = true
   directionalLight.position.set(-3, 7, -3)
@@ -90,60 +93,71 @@ export default function Game() {
   entities.push(plane)
 
   const stats = new Stats()
-  entities.push(stats)
-
-  function resetCameraDirection() {
-    for (const key in cameraDirection) {
-      cameraDirection[key] = false
-    }
-  }
-
-  function setCameraPosition() {
-    if (cameraDirection.up) {
-      if (camera.position.z - cameraSpeed >= worldBounds.topLeftCorner.z) {
-        camera.position.z -= cameraSpeed
-      }
-    }
-    if (cameraDirection.down) {
-      if (
-        camera.position.z + cameraSpeed <=
-        Math.min(worldBounds.bottomLeftCorner.z, worldBounds.bottomRightCorner.z)
-      ) {
-        camera.position.z += cameraSpeed
-      }
-    }
-    if (cameraDirection.left) {
-      if (camera.position.x - cameraSpeed >= worldBounds.topLeftCorner.x) {
-        camera.position.x -= cameraSpeed
-      }
-    }
-    if (cameraDirection.right) {
-      if (camera.position.x + cameraSpeed <= worldBounds.topRightCorner.x) {
-        camera.position.x += cameraSpeed
-      }
-    }
-  }
 
   async function loadAssets() {
-    const [aramMap] = await Promise.allSettled([gltfLoader.loadAsync('/assets/aram-map/aram.gltf')])
+    const [cubeMap, aramMap, nexus, orderTurret] = await Promise.allSettled([
+      cubeTextureLoader
+        .setPath('/assets/cube-maps/1/')
+        .loadAsync(['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png']),
+      gltfLoader.loadAsync('/assets/objects/aram-map/aram.gltf'),
+      gltfLoader.loadAsync('/assets/objects/nexus/nexus.gltf'),
+      gltfLoader.loadAsync('/assets/objects/turret/order/turret.gltf')
+    ])
+    assets.set('cube-map', cubeMap)
     assets.set('aram-map', aramMap)
+    assets.set('nexus', nexus)
+    assets.set('orderTurret', orderTurret)
     setHasLoaded(true)
   }
 
   async function setUpAssets() {
     await loadAssets()
 
+    const envMap = assets.get('cube-map')
+    envMap.encoding = THREE.SRGBColorSpace
+    scene.background = envMap.value
+    scene.environment = envMap.value
+    scene.fog = new THREE.FogExp2('#3a77bd', 0.009)
+
+    const nexus = assets.get('nexus').value.scene as THREE.Mesh
+    nexus.scale.set(0.005, 0.005, 0.005)
+    nexus.position.set(3, 0, -3.5)
+    nexus.scale.z *= -1
+    traverseGltf(nexus)
+    entities.push(nexus)
+
+    const turret = assets.get('orderTurret').value
+    turret.scene.scale.set(4, 4, 4)
+    turret.scene.scale.z *= -1
+    turret.scene.rotation.y = Math.PI / 1.33
+    traverseGltf(turret.scene)
+
+    const spawnTurret1 = cloneGltf(turret).scene
+    spawnTurret1.position.set(-3.3, 0, 2.6)
+    const nexusTurret1 = cloneGltf(turret).scene
+    nexusTurret1.position.set(3.7, 0, -6.4)
+    const nexusTurret2 = cloneGltf(turret).scene
+    nexusTurret2.position.set(5.9, 0, -4)
+    entities.push(spawnTurret1, nexusTurret1, nexusTurret2)
+
     const aramMap = assets.get('aram-map')
     aramMap.value.scene.scale.set(0.005, 0.005, 0.005)
     aramMap.value.scene.scale.z *= -1
     aramMap.value.scene.position.set(-6.5, 1, 6.5)
-    aramMap.value.scene.traverse((child: any) => {
+    traverseGltf(aramMap.value.scene)
+    entities.push(aramMap.value.scene)
+
+    // scene.traverse((child) => {
+    //   if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+    //     child.material.envMapIntensity = envMapIntensity
+    //     child.material.needsUpdate = true
+    //   }
+    // })
+  }
+
+  function traverseGltf(scene: any) {
+    scene.traverse((child: any) => {
       if (child.isMesh) {
-        if (child.material instanceof THREE.MeshBasicMaterial) {
-          child.material = convertMaterialToPhong(child.material)
-          child.castShadow = true
-          child.receiveShadow = true
-        }
         if (child.material.map) {
           child.material.map.minFilter = THREE.LinearMipMapLinearFilter
           child.material.map.magFilter = THREE.LinearFilter
@@ -154,10 +168,46 @@ export default function Game() {
           child.material.normalMap.magFilter = THREE.LinearFilter
           child.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy()
         }
+
+        if (child.material instanceof THREE.MeshBasicMaterial) {
+          child.material = convertMaterialToPhong(child.material)
+          //   child.castShadow = true
+          //   child.receiveShadow = true
+        }
       }
     })
+  }
 
-    entities.push(aramMap.value.scene)
+  function setCameraPosition() {
+    if (cameraDirection.up) {
+      if (camera.position.z - cameraSpeed >= cameraBounds.topLeftCorner.z) {
+        camera.position.z -= cameraSpeed
+      }
+    }
+    if (cameraDirection.down) {
+      if (
+        camera.position.z + cameraSpeed <=
+        Math.min(cameraBounds.bottomLeftCorner.z, cameraBounds.bottomRightCorner.z)
+      ) {
+        camera.position.z += cameraSpeed
+      }
+    }
+    if (cameraDirection.left) {
+      if (camera.position.x - cameraSpeed >= cameraBounds.topLeftCorner.x) {
+        camera.position.x -= cameraSpeed
+      }
+    }
+    if (cameraDirection.right) {
+      if (camera.position.x + cameraSpeed <= cameraBounds.topRightCorner.x) {
+        camera.position.x += cameraSpeed
+      }
+    }
+  }
+
+  function resetCameraDirection() {
+    for (const key in cameraDirection) {
+      cameraDirection[key] = false
+    }
   }
 
   function updateLightPos() {

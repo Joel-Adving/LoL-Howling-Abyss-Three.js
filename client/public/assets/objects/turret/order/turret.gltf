@@ -1,0 +1,422 @@
+{
+  "asset": {
+    "copyright": "",
+    "generator": "SharpGLTF 1.0.0-alpha0029",
+    "version": "2.0"
+  },
+  "extensionsUsed": [
+    "KHR_materials_unlit"
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5123,
+      "count": 9228,
+      "type": "SCALAR"
+    },
+    {
+      "name": "POSITION",
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 2500,
+      "max": [
+        0.1402624547481537,
+        0.8771249055862427,
+        0.1548488587141037
+      ],
+      "min": [
+        -0.19431918859481812,
+        4.7042907763694686E-11,
+        -0.18660786747932434
+      ],
+      "type": "VEC3"
+    },
+    {
+      "name": "JOINTS_0",
+      "bufferView": 2,
+      "componentType": 5121,
+      "count": 2500,
+      "type": "VEC4"
+    },
+    {
+      "name": "WEIGHTS_0",
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 2500,
+      "max": [
+        1,
+        0.9999894499778748,
+        0.24109001457691193,
+        0.941668689250946
+      ],
+      "min": [
+        1.055002212524414E-05,
+        0,
+        0,
+        0
+      ],
+      "type": "VEC4"
+    },
+    {
+      "name": "NORMAL",
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 2500,
+      "max": [
+        1,
+        0.9973828196525574,
+        0.9997333288192749
+      ],
+      "min": [
+        -1,
+        -1,
+        -1
+      ],
+      "type": "VEC3"
+    },
+    {
+      "name": "TEXCOORD_0",
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 2500,
+      "max": [
+        0.9955527782440186,
+        0.9979961514472961
+      ],
+      "min": [
+        0.0033298730850219727,
+        0.00212252140045166
+      ],
+      "type": "VEC2"
+    },
+    {
+      "name": "Bind Matrices",
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 8,
+      "max": [
+        0.14773254096508026,
+        0.8314974904060364,
+        0.5513918399810791,
+        0,
+        0.9948282837867737,
+        0.9999999403953552,
+        0.021251356229186058,
+        0,
+        0.5227153301239014,
+        0.5466972589492798,
+        -0.83396977186203,
+        0,
+        0.048490576446056366,
+        0.10565181076526642,
+        0.11829980462789536,
+        1
+      ],
+      "min": [
+        -0.999999463558197,
+        0,
+        -0.551261842250824,
+        0,
+        0,
+        -0.19272039830684662,
+        -0.02483036182820797,
+        0,
+        -0.5256641507148743,
+        -0.5467187762260437,
+        -0.999999463558197,
+        0,
+        -0.5658048391342163,
+        -0.7673556208610535,
+        -0.1243971586227417,
+        1
+      ],
+      "type": "MAT4"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 18456,
+      "byteOffset": 120000,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 30000,
+      "byteOffset": 40000,
+      "byteStride": 12,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 10000,
+      "byteOffset": 138456,
+      "byteStride": 4,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 40000,
+      "byteStride": 16,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 30000,
+      "byteOffset": 70000,
+      "byteStride": 12,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 20000,
+      "byteOffset": 100000,
+      "byteStride": 8,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 512,
+      "byteOffset": 148456
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 148968,
+      "uri": "turret.bin"
+    }
+  ],
+  "images": [
+    {
+      "uri": "turret.png"
+    }
+  ],
+  "materials": [
+    {
+      "extensions": {
+        "KHR_materials_unlit": {}
+      },
+      "name": "HA_AP_OrderTurret_Mesh1",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 0
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1,
+            "JOINTS_0": 2,
+            "WEIGHTS_0": 3,
+            "NORMAL": 4,
+            "TEXCOORD_0": 5
+          },
+          "indices": 0,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "skinned_mesh",
+      "children": [
+        1
+      ],
+      "mesh": 0,
+      "skin": 0
+    },
+    {
+      "name": "Root",
+      "children": [
+        2,
+        3,
+        6
+      ],
+      "rotation": [
+        0,
+        1,
+        0,
+        0
+      ],
+      "scale": [
+        0.99999976,
+        1,
+        0.99999976
+      ]
+    },
+    {
+      "name": "joint2",
+      "scale": [
+        0.99999994,
+        0.99999994,
+        0.99999994
+      ],
+      "translation": [
+        -0.048490573,
+        0.76735556,
+        0.12439715
+      ]
+    },
+    {
+      "name": "L_joint",
+      "children": [
+        4
+      ],
+      "rotation": [
+        0.22133146,
+        0.18457918,
+        0.7071483,
+        0.6456657
+      ],
+      "scale": [
+        0.99999994,
+        0.9999999,
+        0.99999994
+      ],
+      "translation": [
+        -0.052998956,
+        0.56635666,
+        -0.09000359
+      ]
+    },
+    {
+      "name": "L_joint1",
+      "children": [
+        5
+      ],
+      "rotation": [
+        -7.4588495E-09,
+        -9.323562E-10,
+        0.047071688,
+        0.99889153
+      ],
+      "scale": [
+        0.99999994,
+        0.99999994,
+        0.9999999
+      ],
+      "translation": [
+        -0.079566,
+        3.7252903E-09,
+        0
+      ]
+    },
+    {
+      "name": "L_joint2",
+      "rotation": [
+        -1.0073695E-08,
+        -3.0021947E-16,
+        -0.67303836,
+        0.73960763
+      ],
+      "scale": [
+        0.9999998,
+        0.9999999,
+        0.9999999
+      ],
+      "translation": [
+        -0.08026993,
+        0,
+        -1.8626451E-09
+      ]
+    },
+    {
+      "name": "R_joint",
+      "children": [
+        7
+      ],
+      "rotation": [
+        -0.2207307,
+        -0.18529719,
+        0.709242,
+        0.64336514
+      ],
+      "scale": [
+        0.9999999,
+        0.9999999,
+        0.9999999
+      ],
+      "translation": [
+        0.05492648,
+        0.56635666,
+        -0.09000359
+      ]
+    },
+    {
+      "name": "R_joint1",
+      "children": [
+        8
+      ],
+      "rotation": [
+        -7.457387E-09,
+        1.8643467E-09,
+        0.042720374,
+        0.9990871
+      ],
+      "scale": [
+        1,
+        1,
+        0.99999994
+      ],
+      "translation": [
+        -0.07956591,
+        7.450581E-09,
+        -7.450581E-09
+      ]
+    },
+    {
+      "name": "R_joint2",
+      "rotation": [
+        5.0569393E-09,
+        -7.585408E-09,
+        -0.67625344,
+        0.73666906
+      ],
+      "scale": [
+        0.99999994,
+        0.99999994,
+        0.99999994
+      ],
+      "translation": [
+        -0.08026993,
+        0,
+        7.450581E-09
+      ]
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "SkinnedMesh",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "skins": [
+    {
+      "inverseBindMatrices": 6,
+      "joints": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "source": 0
+    }
+  ]
+}
