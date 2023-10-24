@@ -4,21 +4,21 @@ import { createSignal, onMount } from 'solid-js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { createCursor } from '../utils/createMouseCursor'
 import { convertMaterialToPhong } from '../utils/meshHelpers'
+import { cloneGltf } from '../utils/cloneGltf'
 // @ts-ignore
 import Stats from 'three/examples/jsm/libs/stats.module'
-import { cloneGltf } from '../utils/cloneGltf'
 
 export default function Game() {
   const scene = new THREE.Scene()
   const gltfLoader = new GLTFLoader()
   const cubeTextureLoader = new THREE.CubeTextureLoader()
-  const entities: THREE.Object3D[] = []
   const assets = new Map<string, any>()
   const mouseCursor = createCursor()
 
   const [isPaused, setIsPaused] = createSignal(true)
   const [hasLoaded, setHasLoaded] = createSignal(false)
   const [warning, setWarning] = createSignal<HTMLElement>()
+  const [started, setStarted] = createSignal(false)
 
   let container: HTMLElement | undefined = undefined
   let startBtn: HTMLElement | undefined = undefined
@@ -59,10 +59,10 @@ export default function Game() {
   const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000.0)
   camera.zoom = cameraMaxZoom
   camera.updateProjectionMatrix()
-  entities.push(camera)
+  scene.add(camera)
 
   const hemisphereLight = new THREE.HemisphereLight('#0a9df2', 'black', 2)
-  entities.push(hemisphereLight)
+  scene.add(hemisphereLight)
 
   const directionalLight = new THREE.DirectionalLight(0xffffff, 2)
   directionalLight.shadow.mapSize.set(1024, 1024)
@@ -76,13 +76,13 @@ export default function Game() {
   directionalLight.shadow.camera.top = 20
   directionalLight.shadow.camera.bottom = -20
   directionalLight.shadow.camera.updateProjectionMatrix()
-  entities.push(directionalLight)
+  scene.add(directionalLight)
 
   const box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 'red' }))
   box.position.set(0, 0.5, 0)
   box.castShadow = true
   box.receiveShadow = true
-  entities.push(box)
+  scene.add(box)
 
   const plane = new THREE.Mesh(
     new THREE.PlaneGeometry(200, 200),
@@ -90,23 +90,25 @@ export default function Game() {
   )
   plane.rotation.x = -Math.PI / 2
   plane.position.y = 0.2
-  entities.push(plane)
+  scene.add(plane)
 
   const stats = new Stats()
 
   async function loadAssets() {
-    const [cubeMap, aramMap, nexus, orderTurret] = await Promise.allSettled([
+    const [cubeMap, aramMap, nexus, orderTurret, inhib] = await Promise.allSettled([
       cubeTextureLoader
         .setPath('/assets/cube-maps/1/')
         .loadAsync(['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png']),
       gltfLoader.loadAsync('/assets/objects/aram-map/aram.gltf'),
       gltfLoader.loadAsync('/assets/objects/nexus/nexus.gltf'),
-      gltfLoader.loadAsync('/assets/objects/turret/order/turret.gltf')
+      gltfLoader.loadAsync('/assets/objects/turret/order/turret.gltf'),
+      gltfLoader.loadAsync('/assets/objects/inhib/inhib.gltf')
     ])
     assets.set('cube-map', cubeMap)
     assets.set('aram-map', aramMap)
     assets.set('nexus', nexus)
     assets.set('orderTurret', orderTurret)
+    assets.set('inhib', inhib)
     setHasLoaded(true)
   }
 
@@ -123,29 +125,41 @@ export default function Game() {
     nexus.scale.set(0.005, 0.005, 0.005)
     nexus.position.set(3, 0, -3.5)
     nexus.scale.z *= -1
-    traverseGltf(nexus)
-    entities.push(nexus)
+    traverseGltf(nexus, { castShadow: true, receiveShadow: true })
+    scene.add(nexus)
+
+    const inhib = assets.get('inhib').value.scene as THREE.Mesh
+    inhib.scale.set(0.005, 0.005, 0.005)
+    inhib.position.set(9.1, 0, -9.5)
+    inhib.rotation.y = Math.PI / 0.31
+    inhib.scale.z *= -1
+    traverseGltf(inhib, { castShadow: true, receiveShadow: true })
+    scene.add(inhib)
 
     const turret = assets.get('orderTurret').value
     turret.scene.scale.set(4, 4, 4)
     turret.scene.scale.z *= -1
-    turret.scene.rotation.y = Math.PI / 1.33
-    traverseGltf(turret.scene)
+    turret.scene.rotation.y = Math.PI / 0.57
+    traverseGltf(turret.scene, { castShadow: true, receiveShadow: true })
 
     const spawnTurret1 = cloneGltf(turret).scene
     spawnTurret1.position.set(-3.3, 0, 2.6)
     const nexusTurret1 = cloneGltf(turret).scene
     nexusTurret1.position.set(3.7, 0, -6.4)
     const nexusTurret2 = cloneGltf(turret).scene
-    nexusTurret2.position.set(5.9, 0, -4)
-    entities.push(spawnTurret1, nexusTurret1, nexusTurret2)
+    nexusTurret2.position.set(5.95, 0, -4.1)
+    const nexusTurret3 = cloneGltf(turret).scene
+    nexusTurret3.position.set(12.55, 0, -12.8)
+    const nexusTurret4 = cloneGltf(turret).scene
+    nexusTurret4.position.set(18.1, 0, -18.15)
+    scene.add(spawnTurret1, nexusTurret1, nexusTurret2, nexusTurret3, nexusTurret4)
 
     const aramMap = assets.get('aram-map')
     aramMap.value.scene.scale.set(0.005, 0.005, 0.005)
     aramMap.value.scene.scale.z *= -1
     aramMap.value.scene.position.set(-6.5, 1, 6.5)
-    traverseGltf(aramMap.value.scene)
-    entities.push(aramMap.value.scene)
+    traverseGltf(aramMap.value.scene, { receiveShadow: true })
+    scene.add(aramMap.value.scene)
 
     // scene.traverse((child) => {
     //   if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
@@ -155,7 +169,7 @@ export default function Game() {
     // })
   }
 
-  function traverseGltf(scene: any) {
+  function traverseGltf(scene: any, { castShadow = false, receiveShadow = false } = {}) {
     scene.traverse((child: any) => {
       if (child.isMesh) {
         if (child.material.map) {
@@ -171,8 +185,8 @@ export default function Game() {
 
         if (child.material instanceof THREE.MeshBasicMaterial) {
           child.material = convertMaterialToPhong(child.material)
-          //   child.castShadow = true
-          //   child.receiveShadow = true
+          child.castShadow = castShadow
+          child.receiveShadow = receiveShadow
         }
       }
     })
@@ -246,7 +260,6 @@ export default function Game() {
   }
 
   function start() {
-    entities.forEach((entity) => scene.add(entity))
     initialSceneState()
     if (WebGL.isWebGLAvailable()) {
       requestAnimationFrame(frame)
@@ -255,22 +268,18 @@ export default function Game() {
     }
   }
 
-  function stop() {
-    cancelAnimationFrame(animFrameId)
-    scene.clear()
-    renderer.render(scene, camera)
-    setIsPaused(true)
-  }
-
   function handlePressStart() {
-    start()
+    if (!started()) {
+      start()
+      setStarted(true)
+    }
     setIsPaused(false)
   }
 
   function initEventListeners() {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        stop()
+        setIsPaused((prev) => !prev)
       }
       if (e.key === ' ') {
         cameraLocked = true

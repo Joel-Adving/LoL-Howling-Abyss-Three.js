@@ -1,23 +1,23 @@
 import { Skeleton } from 'three'
 
-export const cloneGltf = (gltf) => {
+export function cloneGltf(gltf: any) {
   const clone = {
     animations: gltf.animations,
     scene: gltf.scene.clone(true)
   }
 
-  const skinnedMeshes = {}
+  const skinnedMeshes = {} as any
 
-  gltf.scene.traverse((node) => {
+  gltf.scene.traverse((node: any) => {
     if (node.isSkinnedMesh) {
       skinnedMeshes[node.name] = node
     }
   })
 
-  const cloneBones = {}
-  const cloneSkinnedMeshes = {}
+  const cloneBones = {} as any
+  const cloneSkinnedMeshes = {} as any
 
-  clone.scene.traverse((node) => {
+  clone.scene.traverse((node: any) => {
     if (node.isBone) {
       cloneBones[node.name] = node
     }
@@ -30,11 +30,12 @@ export const cloneGltf = (gltf) => {
   for (let name in skinnedMeshes) {
     const skinnedMesh = skinnedMeshes[name]
     let skeleton
+
     if (skinnedMesh.skeleton) {
       skeleton = skinnedMesh.skeleton
     }
-    const cloneSkinnedMesh = cloneSkinnedMeshes[name]
 
+    const cloneSkinnedMesh = cloneSkinnedMeshes[name]
     const orderedCloneBones = []
 
     if (skeleton) {
@@ -44,7 +45,7 @@ export const cloneGltf = (gltf) => {
       }
     }
 
-    cloneSkinnedMesh.bind(new Skeleton(orderedCloneBones, skeleton.boneInverses), cloneSkinnedMesh.matrixWorld)
+    cloneSkinnedMesh.bind(new Skeleton(orderedCloneBones, skeleton), cloneSkinnedMesh.matrixWorld)
   }
 
   return clone
