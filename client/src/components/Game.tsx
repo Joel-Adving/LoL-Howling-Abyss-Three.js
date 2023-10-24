@@ -7,6 +7,14 @@ import { convertMaterialToPhong } from '../utils/meshHelpers'
 import { cloneGltf } from '../utils/cloneGltf'
 // @ts-ignore
 import Stats from 'three/examples/jsm/libs/stats.module'
+import { Snowfall } from '../utils/snowParticles'
+
+export type CameraBounds = {
+  topLeftCorner: THREE.Vector3
+  topRightCorner: THREE.Vector3
+  bottomLeftCorner: THREE.Vector3
+  bottomRightCorner: THREE.Vector3
+}
 
 export default function Game() {
   const scene = new THREE.Scene()
@@ -14,6 +22,7 @@ export default function Game() {
   const cubeTextureLoader = new THREE.CubeTextureLoader()
   const assets = new Map<string, any>()
   const mouseCursor = createCursor()
+  const stats = new Stats()
 
   const [isPaused, setIsPaused] = createSignal(true)
   const [hasLoaded, setHasLoaded] = createSignal(false)
@@ -54,17 +63,20 @@ export default function Game() {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = 1
-  renderer.toneMappingExposure = 3
+  renderer.toneMappingExposure = 2.5
 
   const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000.0)
   camera.zoom = cameraMaxZoom
   camera.updateProjectionMatrix()
   scene.add(camera)
 
+  const snowfall = new Snowfall(3500, cameraBounds)
+  scene.add(snowfall.particles)
+
   const hemisphereLight = new THREE.HemisphereLight('#0a9df2', 'black', 2)
   scene.add(hemisphereLight)
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 2)
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5)
   directionalLight.shadow.mapSize.set(1024, 1024)
   directionalLight.castShadow = true
   directionalLight.position.set(-3, 7, -3)
@@ -92,7 +104,9 @@ export default function Game() {
   plane.position.y = 0.2
   scene.add(plane)
 
-  const stats = new Stats()
+  const ambience = new Audio('/assets/sounds/ambience.mp3')
+  ambience.loop = true
+  ambience.volume = 0.2
 
   async function loadAssets() {
     const [cubeMap, aramMap, nexus, orderTurret, inhib] = await Promise.allSettled([
@@ -116,7 +130,12 @@ export default function Game() {
     await loadAssets()
 
     const envMap = assets.get('cube-map')
-    envMap.encoding = THREE.SRGBColorSpace
+    envMap.value.encoding = THREE.SRGBColorSpace
+    envMap.value.magFilter = THREE.LinearFilter
+    envMap.value.minFilter = THREE.LinearMipMapLinearFilter
+    envMap.value.anisotropy = renderer.capabilities.getMaxAnisotropy()
+    envMap.value.mapping = THREE.CubeReflectionMapping
+
     scene.background = envMap.value
     scene.environment = envMap.value
     scene.fog = new THREE.FogExp2('#3a77bd', 0.009)
@@ -162,8 +181,8 @@ export default function Game() {
     scene.add(aramMap.value.scene)
 
     // scene.traverse((child) => {
-    //   if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
-    //     child.material.envMapIntensity = envMapIntensity
+    //   if (child instanceof THREE.Mesh) {
+    //     child.material.envMap = envMap.value
     //     child.material.needsUpdate = true
     //   }
     // })
@@ -246,6 +265,7 @@ export default function Game() {
       camera.position.x = box.position.x
       camera.position.z = box.position.z + 5
     }
+    snowfall.update()
     updateLightPos()
     renderer.render(scene, camera)
     stats.update()
@@ -272,6 +292,7 @@ export default function Game() {
     if (!started()) {
       start()
       setStarted(true)
+      ambience.play()
     }
     setIsPaused(false)
   }
@@ -349,7 +370,7 @@ export default function Game() {
     }
 
     function handleClick(e: MouseEvent) {
-      if (e.target === startBtn || e.target === renderer.domElement) {
+      if (e.target === startBtn || (e.target === renderer.domElement && started())) {
         if (document.pointerLockElement !== container) {
           container!.requestPointerLock()
         }
@@ -412,21 +433,26 @@ export default function Game() {
   })
 
   return (
-    <div class="h-screen w-screen overflow-hidden relative bg-black">
+    <div class="h-screen w-screen overflow-hidden relative bg-black text-xl font-BeaufortBold">
       {warning()}
       {isPaused() && (
-        <div class="absolute inset-0 flex justify-center items-center z-10 bg-black">
-          <div class="flex flex-col gap-6">
-            <h1 class="text-white text-xl">Press F11 for best experiance</h1>
+        <div class="absolute inset-0 flex justify-center items-center">
+          <div class="flex flex-col gap-6 z-30">
+            <h1 class="text-white text-3xl">ARAM - Howling Abyss</h1>
             <button
               ref={startBtn}
               disabled={!hasLoaded()}
-              class="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg max-w-[10rem] w-full mx-auto"
+              class="bg-blue-500 text-white py-2 rounded-lg shadow-lg max-w-fit px-6 w-full mx-auto"
               onClick={handlePressStart}
             >
-              {hasLoaded() ? 'Start' : 'Loading...'}
+              {hasLoaded() ? 'Play' : 'Loading...'}
             </button>
           </div>
+          <img
+            src="/assets/bg.webp"
+            alt=""
+            class="absolute inset-0 w-full h-full object-cover object-center opacity-70 blur-[7px] select-none"
+          />
         </div>
       )}
       <div ref={container} class="absolute inset-0"></div>
