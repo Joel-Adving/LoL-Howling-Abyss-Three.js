@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import WebGL from 'three/addons/capabilities/WebGL.js'
+import { Snowfall } from '../utils/snowParticles'
 import { createSignal, onMount } from 'solid-js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { createCursor } from '../utils/createMouseCursor'
@@ -7,7 +8,8 @@ import { convertMaterialToPhong } from '../utils/meshHelpers'
 import { cloneGltf } from '../utils/cloneGltf'
 // @ts-ignore
 import Stats from 'three/examples/jsm/libs/stats.module'
-import { Snowfall } from '../utils/snowParticles'
+// @ts-ignore
+import TWEEN from '@tweenjs/tween.js'
 
 export type CameraBounds = {
   topLeftCorner: THREE.Vector3
@@ -22,6 +24,7 @@ export default function Game() {
   const cubeTextureLoader = new THREE.CubeTextureLoader()
   const assets = new Map<string, any>()
   const mouseCursor = createCursor()
+  const animations = new Map<string, THREE.AnimationAction>()
   const stats = new Stats()
 
   const [isPaused, setIsPaused] = createSignal(true)
@@ -31,8 +34,10 @@ export default function Game() {
 
   let container: HTMLElement | undefined = undefined
   let startBtn: HTMLElement | undefined = undefined
+  let mixer: THREE.AnimationMixer | undefined = undefined
 
   let envMapIntensity = 5
+
   let cameraSpeed = 0.125
   let cameraLocked = false
   let cameraMaxZoom = 1.85 // 1.715
@@ -41,8 +46,14 @@ export default function Game() {
   let mouseY = 0
   let mouseIsAtEdge = false
 
+  let movementSpeed = 0.0017
+  let currentTween: any = null
+  let isMoving = false
+
   let animFrameId = 0
   let lastFrameTime: null | number = null
+
+  let playerChampion: any = null
 
   const cameraDirection: Record<string, boolean> = {
     up: false,
@@ -90,12 +101,6 @@ export default function Game() {
   directionalLight.shadow.camera.updateProjectionMatrix()
   scene.add(directionalLight)
 
-  const box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 'red' }))
-  box.position.set(0, 0.5, 0)
-  box.castShadow = true
-  box.receiveShadow = true
-  scene.add(box)
-
   const plane = new THREE.Mesh(
     new THREE.PlaneGeometry(200, 200),
     new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0 })
@@ -109,33 +114,45 @@ export default function Game() {
   ambience.volume = 0.2
 
   async function loadAssets() {
-    const [cubeMap, aramMap, nexus, orderTurret, inhib] = await Promise.allSettled([
+    const [cubeMap, aramMap, nexus, orderTurret, inhib, nidalee] = await Promise.allSettled([
       cubeTextureLoader
         .setPath('/assets/cube-maps/1/')
         .loadAsync(['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png']),
       gltfLoader.loadAsync('/assets/objects/aram-map/aram.gltf'),
       gltfLoader.loadAsync('/assets/objects/nexus/nexus.gltf'),
       gltfLoader.loadAsync('/assets/objects/turret/order/turret.gltf'),
-      gltfLoader.loadAsync('/assets/objects/inhib/inhib.gltf')
+      gltfLoader.loadAsync('/assets/objects/inhib/inhib.gltf'),
+      gltfLoader.loadAsync('/assets/objects/champs/nidalee/nidalee.glb')
     ])
     assets.set('cube-map', cubeMap)
     assets.set('aram-map', aramMap)
     assets.set('nexus', nexus)
     assets.set('orderTurret', orderTurret)
     assets.set('inhib', inhib)
+    assets.set('nidalee', nidalee)
     setHasLoaded(true)
   }
 
-  async function setUpAssets() {
+  async function setupScene() {
     await loadAssets()
 
-    const envMap = assets.get('cube-map')
-    envMap.value.encoding = THREE.SRGBColorSpace
-    envMap.value.magFilter = THREE.LinearFilter
-    envMap.value.minFilter = THREE.LinearMipMapLinearFilter
-    envMap.value.anisotropy = renderer.capabilities.getMaxAnisotropy()
-    envMap.value.mapping = THREE.CubeReflectionMapping
+    playerChampion = assets.get('nidalee')
+    const champScene = playerChampion.value.scene
+    champScene.scale.set(0.007, 0.007, 0.007)
+    champScene.position.set(0, 0.3, 0)
+    traverseGltf(champScene, { castShadow: true, receiveShadow: true })
+    scene.add(champScene)
 
+    mixer = new THREE.AnimationMixer(champScene)
+    const runClip = THREE.AnimationClip.findByName(playerChampion.value.animations, 'Run')
+    const idleClip = THREE.AnimationClip.findByName(playerChampion.value.animations, 'idle1.pie_c_11_9')
+    const runAction = mixer.clipAction(runClip)
+    const idleAction = mixer.clipAction(idleClip)
+    animations.set('run', runAction)
+    animations.set('idle', idleAction)
+    idleAction.play()
+
+    const envMap = assets.get('cube-map')
     scene.background = envMap.value
     scene.environment = envMap.value
     scene.fog = new THREE.FogExp2('#3a77bd', 0.009)
@@ -251,7 +268,7 @@ export default function Game() {
 
   function frame(time: number) {
     if (lastFrameTime === null) lastFrameTime = time
-    const delta = time - lastFrameTime
+    const delta = (time - lastFrameTime) / 1000
     step(delta)
     lastFrameTime = time
     animFrameId = requestAnimationFrame(frame)
@@ -262,11 +279,14 @@ export default function Game() {
       setCameraPosition()
     }
     if (cameraLocked) {
-      camera.position.x = box.position.x
-      camera.position.z = box.position.z + 5
+      camera.position.x = playerChampion.value.scene.position.x
+      camera.position.z = playerChampion.value.scene.position.z + 5
     }
+
+    TWEEN.update()
     snowfall.update()
     updateLightPos()
+    mixer?.update(delta * (movementSpeed * 500))
     renderer.render(scene, camera)
     stats.update()
   }
@@ -327,7 +347,7 @@ export default function Game() {
 
     function handleScroll(e: WheelEvent) {
       if (e.deltaY > 0) {
-        if (camera.zoom <= cameraMaxZoom) return
+        if (camera.zoom <= cameraMaxZoom + 0.1) return
         camera.zoom -= 0.2
       } else {
         if (camera.zoom > 4) return
@@ -380,13 +400,15 @@ export default function Game() {
       }
 
       if (e.button === 2) {
+        if (currentTween) {
+          currentTween.stop()
+        }
+
         const raycaster = new THREE.Raycaster()
         const mouse = new THREE.Vector2()
-
         // Use your custom cursor position values mouseX and mouseY
         mouse.x = (mouseX / container!.clientWidth) * 2 - 1
         mouse.y = -(mouseY / container!.clientHeight) * 2 + 1
-
         // Set the raycaster from the camera
         raycaster.setFromCamera(mouse, camera)
 
@@ -394,22 +416,36 @@ export default function Game() {
         const intersects = raycaster.intersectObject(plane)
         if (intersects.length > 0) {
           const intersect = intersects[0]
-          const objectPosition = new THREE.Vector3() // The position where the object will be placed
-
+          const objectPosition = new THREE.Vector3()
+          const idleAction = animations.get('idle')
+          const runAction = animations.get('run')
           // Set object position based on the intersection point on the ground plane
           objectPosition.copy(intersect.point)
+          // Ensure the character stays at ground level
+          objectPosition.y = 0.08
+          // Update character orientation to look at the clicked location
+          playerChampion.value.scene.lookAt(objectPosition)
+          // Calculate the distance between the current position and the clicked position
+          const distance = objectPosition.distanceTo(playerChampion.value.scene.position)
+          // Create a tween to smoothly move the player
+          const duration = distance / movementSpeed
+          currentTween = new TWEEN.Tween(playerChampion.value.scene.position)
+            .to(objectPosition, duration)
+            .onUpdate((objectPosition: any) => {
+              playerChampion.value.scene.position.copy(objectPosition)
+            })
+            .onComplete(() => {
+              currentTween = null
+              isMoving = false
+              idleAction?.reset().play()
+              runAction?.fadeOut(0.2)
+            })
+            .start()
 
-          // Adjust object position to account for the camera's angle and position
-          const angleInDegrees = 56.75
-          const angleInRadians = angleInDegrees * (Math.PI / 180)
-
-          const cameraHeight = 8 // The height of the camera above the ground
-
-          const offset = new THREE.Vector3(0, cameraHeight / Math.tan(angleInRadians), 0)
-          objectPosition.add(offset)
-
-          box.position.copy(objectPosition)
-          box.position.y = 0.5
+          if (isMoving) return
+          isMoving = true
+          runAction?.reset().play()
+          idleAction?.fadeOut(0.2)
         }
       }
     }
@@ -424,7 +460,7 @@ export default function Game() {
   }
 
   onMount(() => {
-    setUpAssets()
+    setupScene()
     initEventListeners()
     document.body.appendChild(stats.dom)
     renderer.setSize(window.innerWidth, window.innerHeight)

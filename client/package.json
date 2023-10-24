@@ -12,6 +12,7 @@
   "dependencies": {
     "@astrojs/solid-js": "^3.0.2",
     "@astrojs/tailwind": "^5.0.2",
+    "@tweenjs/tween.js": "^21.0.0",
     "@types/three": "^0.157.2",
     "astro": "^3.3.2",
     "solid-js": "^1.4.3",
