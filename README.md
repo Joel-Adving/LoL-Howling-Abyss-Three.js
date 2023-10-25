@@ -8,5 +8,9 @@ Todolist/Backlog:
 * Champion Abilities and attacks
 * Entity system for champions, structures and minions
 * Minion AI
-* Websocket/WebRTC for multiplayer
 * More champions to select from
+
+Server side
+* Websocket/WebRTC for multiplayer
+* Lobby system for creating and joining games 
+
