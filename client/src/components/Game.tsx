@@ -1,3 +1,7 @@
+// @ts-ignore
+import Stats from 'three/examples/jsm/libs/stats.module'
+// @ts-ignore
+import TWEEN from '@tweenjs/tween.js'
 import * as THREE from 'three'
 import WebGL from 'three/addons/capabilities/WebGL.js'
 import { Snowfall } from '../utils/snowParticles'
@@ -6,10 +10,6 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { createCursor } from '../utils/createMouseCursor'
 import { convertMaterialToPhong } from '../utils/meshHelpers'
 import { cloneGltf } from '../utils/cloneGltf'
-// @ts-ignore
-import Stats from 'three/examples/jsm/libs/stats.module'
-// @ts-ignore
-import TWEEN from '@tweenjs/tween.js'
 
 export type CameraBounds = {
   topLeftCorner: THREE.Vector3
@@ -36,26 +36,28 @@ export default function Game() {
   let startBtn: HTMLElement | undefined = undefined
   let mixer: THREE.AnimationMixer | undefined = undefined
 
-  let envMapIntensity = 5
-
   let cameraSpeed = 0.125
   let cameraLocked = false
   let cameraMaxZoom = 1.85 // 1.715
 
   let mouseX = 0
   let mouseY = 0
+  let mouseSpeed = 1.3
   let mouseIsAtEdge = false
+  let edgeThreshold = 10
 
   let movementSpeed = 0.0017
-  let currentTween: any = null
   let isMoving = false
 
   let animFrameId = 0
   let lastFrameTime: null | number = null
 
   let playerChampion: any = null
+  let currentTween: any = null
 
-  const cameraDirection: Record<string, boolean> = {
+  let envMapIntensity = 5
+
+  const cameraDirection = {
     up: false,
     down: false,
     left: false,
@@ -108,6 +110,27 @@ export default function Game() {
   plane.rotation.x = -Math.PI / 2
   plane.position.y = 0.2
   scene.add(plane)
+
+  const walkablePlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(150, 7.9),
+    new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide })
+  )
+  walkablePlane.position.set(-0.5, 0.1, 0)
+  walkablePlane.rotation.x = -Math.PI / 2
+  walkablePlane.rotation.z = Math.PI / 4.09
+  walkablePlane.geometry.computeBoundingBox()
+  walkablePlane.name = 'WalkableArea'
+  scene.add(walkablePlane)
+
+  const nonWalkablePlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(3, 3),
+    new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide })
+  )
+  nonWalkablePlane.position.set(3, 0.2, -3)
+  nonWalkablePlane.rotation.x = -Math.PI / 2
+  nonWalkablePlane.rotation.z = Math.PI / 4.09
+  nonWalkablePlane.name = 'NonWalkableArea'
+  scene.add(nonWalkablePlane)
 
   const ambience = new Audio('/assets/sounds/ambience.mp3')
   ambience.loop = true
@@ -184,11 +207,11 @@ export default function Game() {
     nexusTurret1.position.set(3.7, 0, -6.4)
     const nexusTurret2 = cloneGltf(turret).scene
     nexusTurret2.position.set(5.95, 0, -4.1)
-    const nexusTurret3 = cloneGltf(turret).scene
-    nexusTurret3.position.set(12.55, 0, -12.8)
-    const nexusTurret4 = cloneGltf(turret).scene
-    nexusTurret4.position.set(18.1, 0, -18.15)
-    scene.add(spawnTurret1, nexusTurret1, nexusTurret2, nexusTurret3, nexusTurret4)
+    const laneTurret1 = cloneGltf(turret).scene
+    laneTurret1.position.set(12.55, 0, -12.8)
+    const laneTurret2 = cloneGltf(turret).scene
+    laneTurret2.position.set(18.1, 0, -18.15)
+    scene.add(spawnTurret1, nexusTurret1, nexusTurret2, laneTurret1, laneTurret2)
 
     const aramMap = assets.get('aram-map')
     aramMap.value.scene.scale.set(0.005, 0.005, 0.005)
@@ -196,13 +219,6 @@ export default function Game() {
     aramMap.value.scene.position.set(-6.5, 1, 6.5)
     traverseGltf(aramMap.value.scene, { receiveShadow: true })
     scene.add(aramMap.value.scene)
-
-    // scene.traverse((child) => {
-    //   if (child instanceof THREE.Mesh) {
-    //     child.material.envMap = envMap.value
-    //     child.material.needsUpdate = true
-    //   }
-    // })
   }
 
   function traverseGltf(scene: any, { castShadow = false, receiveShadow = false } = {}) {
@@ -255,9 +271,10 @@ export default function Game() {
   }
 
   function resetCameraDirection() {
-    for (const key in cameraDirection) {
-      cameraDirection[key] = false
-    }
+    cameraDirection.up = false
+    cameraDirection.down = false
+    cameraDirection.left = false
+    cameraDirection.right = false
   }
 
   function updateLightPos() {
@@ -282,7 +299,6 @@ export default function Game() {
       camera.position.x = playerChampion.value.scene.position.x
       camera.position.z = playerChampion.value.scene.position.z + 5
     }
-
     TWEEN.update()
     snowfall.update()
     updateLightPos()
@@ -358,15 +374,14 @@ export default function Game() {
 
     function handleMouseMove(e: MouseEvent) {
       if (document.pointerLockElement === container) {
-        mouseX += e.movementX
-        mouseY += e.movementY
+        mouseX += e.movementX * mouseSpeed
+        mouseY += e.movementY * mouseSpeed
         mouseX = Math.min(Math.max(mouseX, 0), container.clientWidth)
         mouseY = Math.min(Math.max(mouseY, 0), container.clientHeight)
         mouseCursor.style.transform = `translate(${mouseX}px, ${mouseY}px)`
 
         resetCameraDirection()
 
-        const edgeThreshold = 10
         mouseIsAtEdge =
           mouseX <= edgeThreshold ||
           mouseY <= edgeThreshold ||
@@ -389,6 +404,8 @@ export default function Game() {
       }
     }
 
+    const walkableObjects = scene.children.filter((object) => object.name === 'WalkableArea')
+
     function handleClick(e: MouseEvent) {
       if (e.target === startBtn || (e.target === renderer.domElement && started())) {
         if (document.pointerLockElement !== container) {
@@ -399,38 +416,70 @@ export default function Game() {
         mouseCursor.style.transform = `translate(${mouseX}px, ${mouseY}px)`
       }
 
-      if (e.button === 2) {
-        if (currentTween) {
-          currentTween.stop()
-        }
+      const raycaster = new THREE.Raycaster()
+      const mouse = new THREE.Vector2()
+      mouse.x = (mouseX / container!.clientWidth) * 2 - 1
+      mouse.y = -(mouseY / container!.clientHeight) * 2 + 1
+      raycaster.setFromCamera(mouse, camera)
 
-        const raycaster = new THREE.Raycaster()
-        const mouse = new THREE.Vector2()
-        // Use your custom cursor position values mouseX and mouseY
-        mouse.x = (mouseX / container!.clientWidth) * 2 - 1
-        mouse.y = -(mouseY / container!.clientHeight) * 2 + 1
-        // Set the raycaster from the camera
-        raycaster.setFromCamera(mouse, camera)
+      const walkableIntersects = raycaster.intersectObjects(walkableObjects)
+      const idleAction = animations.get('idle')
+      const runAction = animations.get('run')
 
-        // Get intersections
-        const intersects = raycaster.intersectObject(plane)
-        if (intersects.length > 0) {
-          const intersect = intersects[0]
-          const objectPosition = new THREE.Vector3()
-          const idleAction = animations.get('idle')
-          const runAction = animations.get('run')
-          // Set object position based on the intersection point on the ground plane
-          objectPosition.copy(intersect.point)
-          // Ensure the character stays at ground level
-          objectPosition.y = 0.08
-          // Update character orientation to look at the clicked location
-          playerChampion.value.scene.lookAt(objectPosition)
-          // Calculate the distance between the current position and the clicked position
-          const distance = objectPosition.distanceTo(playerChampion.value.scene.position)
-          // Create a tween to smoothly move the player
-          const duration = distance / movementSpeed
+      // Check if there are any walkable intersects
+      if (walkableIntersects.length > 0) {
+        const intersect = walkableIntersects[0] // Get the closest walkable intersect
+
+        const objectPosition = new THREE.Vector3()
+
+        objectPosition.copy(intersect.point) // Set object position based on the intersection point on the ground plane
+        objectPosition.y = 0.08
+        playerChampion.value.scene.lookAt(objectPosition) // Update character orientation to look at the clicked location
+        const distance = objectPosition.distanceTo(playerChampion.value.scene.position)
+        const duration = distance / movementSpeed
+        currentTween = new TWEEN.Tween(playerChampion.value.scene.position)
+          .to(objectPosition, duration)
+          .onUpdate((objectPosition: any) => {
+            playerChampion.value.scene.position.copy(objectPosition)
+          })
+          .onComplete(() => {
+            currentTween = null
+            isMoving = false
+            idleAction?.reset().play()
+            runAction?.fadeOut(0.2)
+          })
+          .start()
+
+        if (isMoving) return
+        isMoving = true
+        runAction?.reset().play()
+        idleAction?.fadeOut(0.2)
+      } else {
+        // Handle the case when the right-click is outside the walkable area.
+        // Here you should continue moving in the current direction until hitting the end of the walkable area.
+
+        // Calculate the direction vector based on the current character orientation.
+        const directionVector = new THREE.Vector3()
+        playerChampion.value.scene.getWorldDirection(directionVector)
+        directionVector.normalize()
+
+        // Calculate the endpoint for the movement.
+        const endpoint = new THREE.Vector3().copy(playerChampion.value.scene.position).add(directionVector)
+
+        // Perform raycasting to check for intersections in the current direction.
+        raycaster.set(playerChampion.value.scene.position, endpoint)
+        const walkableIntersectsInDirection = raycaster.intersectObjects(walkableObjects)
+
+        // Check if there are any intersects in the direction.
+        if (walkableIntersectsInDirection.length > 0) {
+          // Continue moving in the current direction.
+          // You may need to adjust the duration based on the distance to the intersection point.
+          const distanceToIntersection = playerChampion.value.scene.position.distanceTo(
+            walkableIntersectsInDirection[0].point
+          )
+          const duration = distanceToIntersection / movementSpeed
           currentTween = new TWEEN.Tween(playerChampion.value.scene.position)
-            .to(objectPosition, duration)
+            .to(walkableIntersectsInDirection[0].point, duration)
             .onUpdate((objectPosition: any) => {
               playerChampion.value.scene.position.copy(objectPosition)
             })
