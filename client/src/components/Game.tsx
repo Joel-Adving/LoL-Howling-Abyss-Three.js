@@ -55,8 +55,6 @@ export default function Game() {
   let playerChampion: any = null
   let currentTween: any = null
 
-  let envMapIntensity = 5
-
   const cameraDirection = {
     up: false,
     down: false,
@@ -103,38 +101,43 @@ export default function Game() {
   directionalLight.shadow.camera.updateProjectionMatrix()
   scene.add(directionalLight)
 
-  const plane = new THREE.Mesh(
-    new THREE.PlaneGeometry(200, 200),
-    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0 })
-  )
-  plane.rotation.x = -Math.PI / 2
-  plane.position.y = 0.2
-  scene.add(plane)
+  const transparentMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
+  const mainPlane = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), transparentMaterial)
+  mainPlane.rotation.x = -Math.PI / 2
+  mainPlane.position.y = 0.2
+  scene.add(mainPlane)
 
-  const walkablePlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(150, 7.9),
-    new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide })
-  )
-  walkablePlane.position.set(-0.5, 0.1, 0)
-  walkablePlane.rotation.x = -Math.PI / 2
-  walkablePlane.rotation.z = Math.PI / 4.09
-  walkablePlane.geometry.computeBoundingBox()
+  const rotation = new THREE.Euler(-Math.PI / 2, 0, Math.PI / 4.09)
+  const walkablePlane = new THREE.Mesh(new THREE.PlaneGeometry(80, 7.9), transparentMaterial)
+  walkablePlane.position.set(25.2, 0.1, -25)
+  walkablePlane.rotation.set(rotation.x, rotation.y, rotation.z)
   walkablePlane.name = 'WalkableArea'
   scene.add(walkablePlane)
 
-  const nonWalkablePlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(3, 3),
-    new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide })
-  )
-  nonWalkablePlane.position.set(3, 0.2, -3)
-  nonWalkablePlane.rotation.x = -Math.PI / 2
-  nonWalkablePlane.rotation.z = Math.PI / 4.09
+  const walkablePlane2 = new THREE.Mesh(new THREE.PlaneGeometry(17, 16), transparentMaterial)
+  walkablePlane2.position.set(4, 0.1, -4)
+  walkablePlane2.rotation.set(rotation.x, rotation.y, rotation.z)
+  walkablePlane2.name = 'WalkableArea'
+  scene.add(walkablePlane2)
+
+  const walkablePlane3 = new THREE.Mesh(new THREE.PlaneGeometry(17, 16), transparentMaterial)
+  walkablePlane3.position.set(46.5, 0.1, -46)
+  walkablePlane3.rotation.set(rotation.x, rotation.y, rotation.z)
+  walkablePlane3.name = 'WalkableArea'
+  scene.add(walkablePlane3)
+
+  const nonWalkablePlane = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), transparentMaterial)
+  nonWalkablePlane.position.set(3, 0.2, -3.5)
+  nonWalkablePlane.rotation.set(rotation.x, rotation.y, rotation.z)
   nonWalkablePlane.name = 'NonWalkableArea'
   scene.add(nonWalkablePlane)
 
   const ambience = new Audio('/assets/sounds/ambience.mp3')
+  const soundtrack = new Audio('/assets/sounds/soundtrack.mp3')
   ambience.loop = true
-  ambience.volume = 0.2
+  ambience.volume = 0.25
+  soundtrack.loop = true
+  soundtrack.volume = 0.09
 
   async function loadAssets() {
     const [cubeMap, aramMap, nexus, orderTurret, inhib, nidalee] = await Promise.allSettled([
@@ -329,6 +332,7 @@ export default function Game() {
       start()
       setStarted(true)
       ambience.play()
+      soundtrack.play()
     }
     setIsPaused(false)
   }
@@ -416,70 +420,33 @@ export default function Game() {
         mouseCursor.style.transform = `translate(${mouseX}px, ${mouseY}px)`
       }
 
-      const raycaster = new THREE.Raycaster()
-      const mouse = new THREE.Vector2()
-      mouse.x = (mouseX / container!.clientWidth) * 2 - 1
-      mouse.y = -(mouseY / container!.clientHeight) * 2 + 1
-      raycaster.setFromCamera(mouse, camera)
+      if (e.button === 2) {
+        if (currentTween) {
+          currentTween.stop()
+        }
 
-      const walkableIntersects = raycaster.intersectObjects(walkableObjects)
-      const idleAction = animations.get('idle')
-      const runAction = animations.get('run')
+        const idleAction = animations.get('idle')
+        const runAction = animations.get('run')
+        const raycaster = new THREE.Raycaster()
+        const mouse = new THREE.Vector2()
+        mouse.x = (mouseX / container!.clientWidth) * 2 - 1
+        mouse.y = -(mouseY / container!.clientHeight) * 2 + 1
+        raycaster.setFromCamera(mouse, camera)
 
-      // Check if there are any walkable intersects
-      if (walkableIntersects.length > 0) {
-        const intersect = walkableIntersects[0] // Get the closest walkable intersect
+        const walkableIntersects = raycaster.intersectObjects(walkableObjects)
+        const mainPlaneIntersects = raycaster.intersectObjects([mainPlane])
 
-        const objectPosition = new THREE.Vector3()
+        if (walkableIntersects.length > 0) {
+          const intersect = walkableIntersects[0]
+          const objectPosition = new THREE.Vector3()
+          objectPosition.copy(intersect.point)
+          objectPosition.y = 0.08
+          playerChampion.value.scene.lookAt(objectPosition)
+          const distance = objectPosition.distanceTo(playerChampion.value.scene.position)
+          const duration = distance / movementSpeed
 
-        objectPosition.copy(intersect.point) // Set object position based on the intersection point on the ground plane
-        objectPosition.y = 0.08
-        playerChampion.value.scene.lookAt(objectPosition) // Update character orientation to look at the clicked location
-        const distance = objectPosition.distanceTo(playerChampion.value.scene.position)
-        const duration = distance / movementSpeed
-        currentTween = new TWEEN.Tween(playerChampion.value.scene.position)
-          .to(objectPosition, duration)
-          .onUpdate((objectPosition: any) => {
-            playerChampion.value.scene.position.copy(objectPosition)
-          })
-          .onComplete(() => {
-            currentTween = null
-            isMoving = false
-            idleAction?.reset().play()
-            runAction?.fadeOut(0.2)
-          })
-          .start()
-
-        if (isMoving) return
-        isMoving = true
-        runAction?.reset().play()
-        idleAction?.fadeOut(0.2)
-      } else {
-        // Handle the case when the right-click is outside the walkable area.
-        // Here you should continue moving in the current direction until hitting the end of the walkable area.
-
-        // Calculate the direction vector based on the current character orientation.
-        const directionVector = new THREE.Vector3()
-        playerChampion.value.scene.getWorldDirection(directionVector)
-        directionVector.normalize()
-
-        // Calculate the endpoint for the movement.
-        const endpoint = new THREE.Vector3().copy(playerChampion.value.scene.position).add(directionVector)
-
-        // Perform raycasting to check for intersections in the current direction.
-        raycaster.set(playerChampion.value.scene.position, endpoint)
-        const walkableIntersectsInDirection = raycaster.intersectObjects(walkableObjects)
-
-        // Check if there are any intersects in the direction.
-        if (walkableIntersectsInDirection.length > 0) {
-          // Continue moving in the current direction.
-          // You may need to adjust the duration based on the distance to the intersection point.
-          const distanceToIntersection = playerChampion.value.scene.position.distanceTo(
-            walkableIntersectsInDirection[0].point
-          )
-          const duration = distanceToIntersection / movementSpeed
           currentTween = new TWEEN.Tween(playerChampion.value.scene.position)
-            .to(walkableIntersectsInDirection[0].point, duration)
+            .to(objectPosition, duration)
             .onUpdate((objectPosition: any) => {
               playerChampion.value.scene.position.copy(objectPosition)
             })
@@ -491,10 +458,20 @@ export default function Game() {
             })
             .start()
 
-          if (isMoving) return
-          isMoving = true
-          runAction?.reset().play()
-          idleAction?.fadeOut(0.2)
+          if (!isMoving) {
+            isMoving = true
+            runAction?.reset().play()
+            idleAction?.fadeOut(0.2)
+          }
+        } else {
+          const objectPosition = new THREE.Vector3()
+          objectPosition.copy(mainPlaneIntersects[0].point)
+          objectPosition.y = 0.08
+          playerChampion.value.scene.lookAt(objectPosition)
+          currentTween = null
+          isMoving = false
+          idleAction?.reset().play()
+          runAction?.fadeOut(0.2)
         }
       }
     }
@@ -523,11 +500,11 @@ export default function Game() {
       {isPaused() && (
         <div class="absolute inset-0 flex justify-center items-center">
           <div class="flex flex-col gap-6 z-30">
-            <h1 class="text-white text-3xl">ARAM - Howling Abyss</h1>
+            <h1 class="text-white text-5xl">Howling Abyss</h1>
             <button
               ref={startBtn}
               disabled={!hasLoaded()}
-              class="bg-blue-500 text-white py-2 rounded-lg shadow-lg max-w-fit px-6 w-full mx-auto"
+              class="bg-blue-500 text-white py-2 rounded-lg shadow-xl max-w-fit px-6 w-full mx-auto"
               onClick={handlePressStart}
             >
               {hasLoaded() ? 'Play' : 'Loading...'}
