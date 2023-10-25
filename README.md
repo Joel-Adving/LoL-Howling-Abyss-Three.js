@@ -1,7 +1,8 @@
 # Howling Abyss - ARAM - League of Legends - Three.js
 League of legends map Howling Abyss recreated with Three.js
 
-## Prototype demo: https://aram.oki.gg
+## Live prototype demo: 
+## https://aram.oki.gg
 
 Todolist/Backlog:
 * Better physics/collision to mimic real league of legends
