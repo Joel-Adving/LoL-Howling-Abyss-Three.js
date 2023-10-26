@@ -5,6 +5,7 @@ League of legends map Howling Abyss recreated with Three.js
 
 Todolist/Backlog:
 * Better physics/collision to mimic real league of legends
+* UI
 * Champion Abilities and attacks
 * Entity system for champions, structures and minions
 * Minion AI
