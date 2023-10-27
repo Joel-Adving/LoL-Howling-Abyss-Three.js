@@ -1,0 +1,112 @@
+import { Euler, FogExp2, Mesh, MeshBasicMaterial, PlaneGeometry, Scene as ThreeScene } from 'three'
+import { assets } from './assets'
+import { cloneGltf } from './utils/cloneGltf'
+import { traverseGltf } from './utils/traverseGltf'
+import { Renderer } from './renderer'
+import { Snowfall } from './particles/snowParticles'
+import { Camera, cameraBounds } from './camera'
+import { addToLoop } from './renderLoop'
+
+let scene: ThreeScene
+
+export function Scene() {
+  if (!scene) {
+    scene = new ThreeScene()
+  }
+  return scene
+}
+
+export function setupScene() {
+  const scene = Scene()
+  const camera = Camera()
+  const renderer = Renderer()
+
+  const snowfall = new Snowfall(3500, cameraBounds)
+  addToLoop(() => snowfall.update())
+  scene.add(snowfall.particles)
+  scene.add(camera)
+
+  const transparentMaterial = new MeshBasicMaterial({ transparent: true, opacity: 0 })
+  const mainPlane = new Mesh(new PlaneGeometry(200, 200), transparentMaterial)
+  mainPlane.rotation.x = -Math.PI / 2
+  mainPlane.position.y = 0.2
+  mainPlane.name = 'MainPlane'
+  scene.add(mainPlane)
+
+  const rotation = new Euler(-Math.PI / 2, 0, Math.PI / 4.09)
+  const walkablePlane = new Mesh(new PlaneGeometry(80, 7.9), transparentMaterial)
+  walkablePlane.position.set(25.2, 0.1, -25)
+  walkablePlane.rotation.set(rotation.x, rotation.y, rotation.z)
+  walkablePlane.name = 'WalkableArea'
+  scene.add(walkablePlane)
+
+  const walkablePlane2 = new Mesh(new PlaneGeometry(17, 16), transparentMaterial)
+  walkablePlane2.position.set(4, 0.1, -4)
+  walkablePlane2.rotation.set(rotation.x, rotation.y, rotation.z)
+  walkablePlane2.name = 'WalkableArea'
+  scene.add(walkablePlane2)
+
+  const walkablePlane3 = new Mesh(new PlaneGeometry(17, 16), transparentMaterial)
+  walkablePlane3.position.set(46.5, 0.1, -46)
+  walkablePlane3.rotation.set(rotation.x, rotation.y, rotation.z)
+  walkablePlane3.name = 'WalkableArea'
+  scene.add(walkablePlane3)
+
+  const nonWalkablePlane = new Mesh(new PlaneGeometry(3, 3), transparentMaterial)
+  nonWalkablePlane.position.set(3, 0.2, -3.5)
+  nonWalkablePlane.rotation.set(rotation.x, rotation.y, rotation.z)
+  nonWalkablePlane.name = 'NonWalkableArea'
+  scene.add(nonWalkablePlane)
+
+  const playerChampion = assets.get('nidalee')
+  const champScene = playerChampion.value.scene
+  champScene.scale.set(0.007, 0.007, 0.007)
+  champScene.position.set(0, 0.3, 0)
+  traverseGltf(champScene, renderer, { castShadow: true, receiveShadow: true })
+  scene.add(champScene)
+
+  const envMap = assets.get('cube-map')
+  scene.background = envMap.value
+  scene.environment = envMap.value
+  scene.fog = new FogExp2('#3a77bd', 0.009)
+
+  const nexus = assets.get('nexus').value.scene as THREE.Mesh
+  nexus.scale.set(0.005, 0.005, 0.005)
+  nexus.position.set(3, 0, -3.5)
+  nexus.scale.z *= -1
+  traverseGltf(nexus, renderer, { castShadow: true, receiveShadow: true })
+  scene.add(nexus)
+
+  const inhib = assets.get('inhib').value.scene as THREE.Mesh
+  inhib.scale.set(0.005, 0.005, 0.005)
+  inhib.position.set(9.1, 0, -9.5)
+  inhib.rotation.y = Math.PI / 0.31
+  inhib.scale.z *= -1
+  traverseGltf(inhib, renderer, { castShadow: true, receiveShadow: true })
+  scene.add(inhib)
+
+  const turret = assets.get('orderTurret').value
+  turret.scene.scale.set(4, 4, 4)
+  turret.scene.scale.z *= -1
+  turret.scene.rotation.y = Math.PI / 0.57
+  traverseGltf(turret.scene, renderer, { castShadow: true, receiveShadow: true })
+
+  const spawnTurret1 = cloneGltf(turret).scene
+  spawnTurret1.position.set(-3.3, 0, 2.6)
+  const nexusTurret1 = cloneGltf(turret).scene
+  nexusTurret1.position.set(3.7, 0, -6.4)
+  const nexusTurret2 = cloneGltf(turret).scene
+  nexusTurret2.position.set(5.95, 0, -4.1)
+  const laneTurret1 = cloneGltf(turret).scene
+  laneTurret1.position.set(12.55, 0, -12.8)
+  const laneTurret2 = cloneGltf(turret).scene
+  laneTurret2.position.set(18.1, 0, -18.15)
+  scene.add(spawnTurret1, nexusTurret1, nexusTurret2, laneTurret1, laneTurret2)
+
+  const aramMap = assets.get('aram-map')
+  aramMap.value.scene.scale.set(0.005, 0.005, 0.005)
+  aramMap.value.scene.scale.z *= -1
+  aramMap.value.scene.position.set(-6.5, 1, 6.5)
+  traverseGltf(aramMap.value.scene, renderer, { receiveShadow: true })
+  scene.add(aramMap.value.scene)
+}

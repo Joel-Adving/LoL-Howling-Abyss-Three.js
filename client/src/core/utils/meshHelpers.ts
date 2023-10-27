@@ -1,4 +1,4 @@
-import { MeshPhongMaterial, MeshStandardMaterial, MultiplyOperation } from 'three'
+import { MeshPhongMaterial, MultiplyOperation } from 'three'
 
 export function convertMaterialToPhong(material: any) {
   return new MeshPhongMaterial({

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { CameraBounds } from '../components/Game'
+import type { CameraBounds } from '../camera'
 
 export class Snowfall {
   particleCount: number
