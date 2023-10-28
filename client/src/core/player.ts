@@ -32,6 +32,14 @@ export function newPlayer() {
   collider.linearDamping = 0
   PhysicsWorld().addBody(collider)
 
+  //   Uncomment to see collider
+  //
+  //   const sphere = new Mesh(new SphereGeometry(0.5, 32, 32), new MeshBasicMaterial({ color: 0x00ff00, wireframe: true }))
+  //   Scene().add(sphere)
+  //   addToLoop(() => {
+  //     sphere.position.set(collider.position.x, collider.position.y, collider.position.z)
+  //   })
+
   return {
     model: new Mesh(),
     collider,
@@ -60,10 +68,10 @@ export function playerUpdate() {
     ).unit()
 
     const distanceToTarget = player.target.distanceTo(
-      new Vector3(player.collider.position.x, player.collider.position.y, player.collider.position.z)
+      new Vector3(player.collider.position.x, 0, player.collider.position.z)
     )
 
-    if (distanceToTarget < 0.5) {
+    if (distanceToTarget < 0.4) {
       player.collider.velocity.set(0, 0, 0)
       player.target = null
       if (currentAnimation === 'run') {
@@ -89,5 +97,5 @@ export function playerUpdate() {
     }
   }
 
-  player.model.position.set(player.collider.position.x, player.collider.position.y, player.collider.position.z)
+  player.model.position.set(player.collider.position.x, player.collider.position.y - 0.5, player.collider.position.z)
 }

@@ -1,14 +1,4 @@
-import * as CANNON from 'cannon-es'
-import {
-  BoxGeometry,
-  Euler,
-  FogExp2,
-  Mesh,
-  MeshBasicMaterial,
-  PlaneGeometry,
-  SphereGeometry,
-  Scene as THREE_Scene
-} from 'three'
+import { FogExp2, Mesh, MeshBasicMaterial, PlaneGeometry, Scene as THREE_Scene } from 'three'
 import { assets } from './assets'
 import { cloneGltf } from './utils/cloneGltf'
 import { traverseGltf } from './utils/traverseGltf'
@@ -18,7 +8,6 @@ import { Camera, cameraBounds } from './camera'
 import { addToLoop } from './renderLoop'
 import { initLighting } from './lighting'
 import { Player } from './player'
-import { PhysicsWorld } from './physics'
 
 let scene: THREE_Scene
 
@@ -32,11 +21,14 @@ export function Scene() {
 export function initScene() {
   const scene = Scene()
   const renderer = Renderer()
-  const physicsWorld = PhysicsWorld()
   const camera = Camera()
   scene.add(camera)
 
   initLighting()
+
+  const snowfall = new Snowfall(3500, cameraBounds)
+  addToLoop(() => snowfall.update())
+  scene.add(snowfall.particles)
 
   const player = Player()
   const playerGltf = assets.get('nidalee').value.scene
@@ -46,28 +38,12 @@ export function initScene() {
   player.model.position.set(0, 0.3, 0)
   scene.add(player.model)
 
-  const snowfall = new Snowfall(3500, cameraBounds)
-  addToLoop(() => snowfall.update())
-  scene.add(snowfall.particles)
-
   const transparentMaterial = new MeshBasicMaterial({ transparent: true, opacity: 0 })
   const mainPlane = new Mesh(new PlaneGeometry(80, 80), transparentMaterial)
   mainPlane.rotation.x = -Math.PI / 2
   mainPlane.position.set(25, 0.2, -25)
   mainPlane.name = 'ground'
   scene.add(mainPlane)
-
-  const groundMaterial = new CANNON.Material()
-  const groundBody = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Plane(), material: groundMaterial })
-  groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0)
-  groundBody.position.set(25, 0, -25)
-  physicsWorld.addBody(groundBody)
-
-  const playerGroundContact = new CANNON.ContactMaterial(player.collider.material!, groundMaterial, {
-    friction: 1.0, // High friction
-    restitution: 0.0 // No bounciness
-  })
-  physicsWorld.addContactMaterial(playerGroundContact)
 
   const envMap = assets.get('cube-map')
   scene.background = envMap.value
