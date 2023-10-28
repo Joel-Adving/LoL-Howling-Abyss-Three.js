@@ -1,12 +1,8 @@
-// @ts-ignore
-import TWEEN from '@tweenjs/tween.js'
-export { TWEEN }
 import { AnimationClip, AnimationMixer } from 'three'
 import { assets } from './assets'
 
 export const animations = new Map<string, THREE.AnimationAction>()
 export let animationMixer: AnimationMixer
-export let currentTween = null
 
 export function initAnimations() {
   const playerChampion = assets.get('nidalee')
@@ -22,10 +18,8 @@ export function initAnimations() {
   idleAction.play()
 }
 
-export function setCurrentTween(tween: any) {
-  currentTween = tween
-}
+export let currentAnimation: 'idle' | 'run' = 'idle'
 
-export function updateAnimations() {
-  TWEEN.update()
+export function setCurrentAnimation(animation: 'idle' | 'run') {
+  currentAnimation = animation
 }

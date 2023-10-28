@@ -1,4 +1,14 @@
-import { Euler, FogExp2, Mesh, MeshBasicMaterial, PlaneGeometry, Scene as ThreeScene } from 'three'
+import * as CANNON from 'cannon-es'
+import {
+  BoxGeometry,
+  Euler,
+  FogExp2,
+  Mesh,
+  MeshBasicMaterial,
+  PlaneGeometry,
+  SphereGeometry,
+  Scene as THREE_Scene
+} from 'three'
 import { assets } from './assets'
 import { cloneGltf } from './utils/cloneGltf'
 import { traverseGltf } from './utils/traverseGltf'
@@ -6,64 +16,58 @@ import { Renderer } from './renderer'
 import { Snowfall } from './particles/snowParticles'
 import { Camera, cameraBounds } from './camera'
 import { addToLoop } from './renderLoop'
+import { initLighting } from './lighting'
+import { Player } from './player'
+import { PhysicsWorld } from './physics'
 
-let scene: ThreeScene
+let scene: THREE_Scene
 
 export function Scene() {
   if (!scene) {
-    scene = new ThreeScene()
+    scene = new THREE_Scene()
   }
   return scene
 }
 
-export function setupScene() {
+export function initScene() {
   const scene = Scene()
-  const camera = Camera()
   const renderer = Renderer()
+  const physicsWorld = PhysicsWorld()
+  const camera = Camera()
+  scene.add(camera)
+
+  initLighting()
+
+  const player = Player()
+  const playerGltf = assets.get('nidalee').value.scene
+  traverseGltf(playerGltf, renderer, { castShadow: true, receiveShadow: true })
+  player.model = playerGltf
+  player.model.scale.set(0.007, 0.007, 0.007)
+  player.model.position.set(0, 0.3, 0)
+  scene.add(player.model)
 
   const snowfall = new Snowfall(3500, cameraBounds)
   addToLoop(() => snowfall.update())
   scene.add(snowfall.particles)
-  scene.add(camera)
 
   const transparentMaterial = new MeshBasicMaterial({ transparent: true, opacity: 0 })
-  const mainPlane = new Mesh(new PlaneGeometry(200, 200), transparentMaterial)
+  const mainPlane = new Mesh(new PlaneGeometry(80, 80), transparentMaterial)
   mainPlane.rotation.x = -Math.PI / 2
-  mainPlane.position.y = 0.2
-  mainPlane.name = 'MainPlane'
+  mainPlane.position.set(25, 0.2, -25)
+  mainPlane.name = 'ground'
   scene.add(mainPlane)
 
-  const rotation = new Euler(-Math.PI / 2, 0, Math.PI / 4.09)
-  const walkablePlane = new Mesh(new PlaneGeometry(80, 7.9), transparentMaterial)
-  walkablePlane.position.set(25.2, 0.1, -25)
-  walkablePlane.rotation.set(rotation.x, rotation.y, rotation.z)
-  walkablePlane.name = 'WalkableArea'
-  scene.add(walkablePlane)
+  const groundMaterial = new CANNON.Material()
+  const groundBody = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Plane(), material: groundMaterial })
+  groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0)
+  groundBody.position.set(25, 0, -25)
+  physicsWorld.addBody(groundBody)
 
-  const walkablePlane2 = new Mesh(new PlaneGeometry(17, 16), transparentMaterial)
-  walkablePlane2.position.set(4, 0.1, -4)
-  walkablePlane2.rotation.set(rotation.x, rotation.y, rotation.z)
-  walkablePlane2.name = 'WalkableArea'
-  scene.add(walkablePlane2)
-
-  const walkablePlane3 = new Mesh(new PlaneGeometry(17, 16), transparentMaterial)
-  walkablePlane3.position.set(46.5, 0.1, -46)
-  walkablePlane3.rotation.set(rotation.x, rotation.y, rotation.z)
-  walkablePlane3.name = 'WalkableArea'
-  scene.add(walkablePlane3)
-
-  const nonWalkablePlane = new Mesh(new PlaneGeometry(3, 3), transparentMaterial)
-  nonWalkablePlane.position.set(3, 0.2, -3.5)
-  nonWalkablePlane.rotation.set(rotation.x, rotation.y, rotation.z)
-  nonWalkablePlane.name = 'NonWalkableArea'
-  scene.add(nonWalkablePlane)
-
-  const playerChampion = assets.get('nidalee')
-  const champScene = playerChampion.value.scene
-  champScene.scale.set(0.007, 0.007, 0.007)
-  champScene.position.set(0, 0.3, 0)
-  traverseGltf(champScene, renderer, { castShadow: true, receiveShadow: true })
-  scene.add(champScene)
+  const playerGroundContact = new CANNON.ContactMaterial(player.collider.material!, groundMaterial, {
+    friction: 1.0, // High friction
+    restitution: 0.0 // No bounciness
+  })
+  physicsWorld.addContactMaterial(playerGroundContact)
 
   const envMap = assets.get('cube-map')
   scene.background = envMap.value

@@ -15,6 +15,7 @@
     "@tweenjs/tween.js": "^21.0.0",
     "@types/three": "^0.157.2",
     "astro": "^3.3.2",
+    "cannon-es": "^0.20.0",
     "solid-js": "^1.4.3",
     "tailwindcss": "^3.0.24",
     "three": "^0.157.0"

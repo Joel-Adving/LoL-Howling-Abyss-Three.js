@@ -1,23 +1,17 @@
 import { Raycaster, Vector2, Vector3 } from 'three'
 import { Camera, cameraMaxZoom, resetCameraMovingDirection, setCameraLocked, setCameraMovingDirection } from './camera'
-import { TWEEN, animations, currentTween, setCurrentTween } from './animations'
 import { Renderer } from './renderer'
 import { setIsPaused, started } from '../store'
-import { assets } from './assets'
 import { Scene } from './scene'
 import { Mouse, setMouseIsAtEdge, setMouseX, setMouseY } from './mouse'
-
-let movementSpeed = 0.0017
-let isMoving = false
+import { Player } from './player'
 
 export function initEventListeners({ container, startBtn }: { container: any; startBtn: any }) {
   const renderer = Renderer()
   const scene = Scene()
   const camera = Camera()
   const mouse = Mouse()
-
-  const playerChampion = assets.get('nidalee')
-  const walkableObjects = scene.children.filter((object: any) => object.name === 'WalkableArea')
+  const player = Player()
 
   addEventListener('wheel', handleScroll)
   addEventListener('click', handleClick)
@@ -109,60 +103,22 @@ export function initEventListeners({ container, startBtn }: { container: any; st
     }
 
     if (e.button === 2) {
-      if (currentTween) {
-        currentTween.stop()
-      }
-
-      const idleAction = animations.get('idle')
-      const runAction = animations.get('run')
       const raycaster = new Raycaster()
       const mouseVec2 = new Vector2()
       mouseVec2.x = (mouse.x / container!.clientWidth) * 2 - 1
       mouseVec2.y = -(mouse.y / container!.clientHeight) * 2 + 1
       raycaster.setFromCamera(mouseVec2, camera)
 
-      const walkableIntersects = raycaster.intersectObjects(walkableObjects)
-      const mainPlane = scene.children.find((object: any) => object.name === 'MainPlane')!
-      const mainPlaneIntersects = raycaster.intersectObjects([mainPlane])
+      const ground = scene.children.find((object) => object.name === 'ground')!
+      const groundIntersects = raycaster.intersectObjects([ground])
 
-      if (walkableIntersects.length > 0) {
-        const intersect = walkableIntersects[0]
-        const objectPosition = new Vector3()
-        objectPosition.copy(intersect.point)
-        objectPosition.y = 0.08
-        playerChampion.value.scene.lookAt(objectPosition)
-        const distance = objectPosition.distanceTo(playerChampion.value.scene.position)
-        const duration = distance / movementSpeed
+      if (groundIntersects.length > 0) {
+        const clickedPoint = groundIntersects[0].point
+        const target = new Vector3()
+        target.copy(clickedPoint)
 
-        setCurrentTween(
-          new TWEEN.Tween(playerChampion.value.scene.position)
-            .to(objectPosition, duration)
-            .onUpdate((objectPosition: any) => {
-              playerChampion.value.scene.position.copy(objectPosition)
-            })
-            .onComplete(() => {
-              setCurrentTween(null)
-              isMoving = false
-              idleAction?.reset().play()
-              runAction?.fadeOut(0.2)
-            })
-            .start()
-        )
-
-        if (!isMoving) {
-          isMoving = true
-          runAction?.reset().play()
-          idleAction?.fadeOut(0.2)
-        }
-      } else {
-        const objectPosition = new Vector3()
-        objectPosition.copy(mainPlaneIntersects[0].point)
-        objectPosition.y = 0.08
-        playerChampion.value.scene.lookAt(objectPosition)
-        setCurrentTween(null)
-        isMoving = false
-        idleAction?.reset().play()
-        runAction?.fadeOut(0.2)
+        player.model.lookAt(target.x, player.model.position.y, target.z)
+        player.target = target
       }
     }
   }

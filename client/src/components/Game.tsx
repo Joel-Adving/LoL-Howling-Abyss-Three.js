@@ -4,14 +4,14 @@ import WebGL from 'three/addons/capabilities/WebGL.js'
 import { onMount } from 'solid-js'
 import { Mouse } from '../core/mouse'
 import { Renderer } from '../core/renderer'
-import { setupScene } from '../core/scene'
+import { initScene } from '../core/scene'
 import { loadAssets } from '../core/assets'
-import { setupLighting } from '../core/lighting'
 import { initAnimations } from '../core/animations'
 import { initEventListeners } from '../core/eventListeners'
 import { ambience, soundtrack } from '../core/audio'
 import { addToLoop, startRenderLoop } from '../core/renderLoop'
 import { hasLoaded, isPaused, setIsPaused, setStarted, setWarning, started, warning } from '../store'
+import { initPhysicsScene } from '../core/physics'
 
 export default function Game() {
   let startBtn: HTMLElement | undefined = undefined
@@ -20,20 +20,18 @@ export default function Game() {
   onMount(async () => {
     await loadAssets()
 
-    const mouse = Mouse()
     const stats = new Stats()
-    const renderer = Renderer()
 
     addToLoop(() => stats.update())
-    setupScene()
-    setupLighting()
+    initScene()
+    initPhysicsScene()
     initAnimations()
     initEventListeners({ container, startBtn })
 
     document.body.appendChild(stats.dom)
-    renderer.setSize(window.innerWidth, window.innerHeight)
-    container!.appendChild(mouse.element)
-    container!.appendChild(renderer.domElement)
+    Renderer().setSize(window.innerWidth, window.innerHeight)
+    container!.appendChild(Mouse().element)
+    container!.appendChild(Renderer().domElement)
   })
 
   function handleStart() {

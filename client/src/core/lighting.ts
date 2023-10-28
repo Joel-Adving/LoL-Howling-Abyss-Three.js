@@ -3,7 +3,7 @@ import { Scene } from './scene'
 
 let directionalLight: DirectionalLight
 
-export function setupLighting() {
+export function initLighting() {
   const scene = Scene()
 
   const hemisphereLight = new HemisphereLight('#0a9df2', 'black', 2)

@@ -14,12 +14,17 @@ export let cameraMaxZoom = 1.85 // 1.715
 
 export function Camera() {
   if (!camera) {
-    camera = new PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000.0)
-    camera.rotation.x = -56.75 * (Math.PI / 180)
-    camera.position.set(0, 8, 5)
-    camera.zoom = cameraMaxZoom
-    camera.updateProjectionMatrix()
+    camera = initCamera()
   }
+  return camera
+}
+
+export function initCamera() {
+  const camera = new PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000.0)
+  camera.rotation.x = -56.75 * (Math.PI / 180)
+  camera.position.set(0, 8, 5)
+  camera.zoom = cameraMaxZoom
+  camera.updateProjectionMatrix()
   return camera
 }
 
